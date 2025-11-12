@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 15s  # Recoger métricas cada 15 segundos
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Configuración para recoger métricas del backend
+  - job_name: 'climapp-backend'
+    static_configs:
+      - targets: ['backend:8000']  # El nombre del servicio en docker-compose
+    metrics_path: '/metrics'  # El endpoint donde FastAPI expone las métricas

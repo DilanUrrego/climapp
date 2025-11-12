@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: climapp-config
+  labels:
+    app: climapp
+data:
+  # Backend configuration
+  BACKEND_HOST: "climapp-backend-service"
+  BACKEND_PORT: "8000"
+  
+  # Database configuration
+  POSTGRES_HOST: "climapp-db-service"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "climapp"
+  
+  # Frontend configuration
+  NEXT_PUBLIC_FASTAPI_URL: "http://192.168.49.2:30800"
+  NEXT_PUBLIC_API_URL: "http://192.168.49.2:30800"
+  NODE_ENV: "production"

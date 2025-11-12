@@ -1,0 +1,7 @@
+# Ignorar archivos de evidencias generadas
+evidencias/
+*.txt
+*.log
+
+# Mantener el directorio pero ignorar su contenido
+!.gitkeep

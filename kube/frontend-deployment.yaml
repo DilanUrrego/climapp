@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: climapp-frontend
+  labels:
+    app: climapp
+    component: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: climapp
+      component: frontend
+  template:
+    metadata:
+      labels:
+        app: climapp
+        component: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: onemayepes/frontend-climapp:latest
+        ports:
+        - containerPort: 80
+          name: http
+        env:
+        - name: NEXT_PUBLIC_FASTAPI_URL
+          value: ""
+        - name: NEXT_PUBLIC_API_URL
+          value: ""
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: climapp-config
+              key: NODE_ENV
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d/default.conf
+          subPath: default.conf
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: nginx-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: climapp-frontend-service
+  labels:
+    app: climapp
+    component: frontend
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 80
+    nodePort: 30300
+    protocol: TCP
+    name: http
+  selector:
+    app: climapp
+    component: frontend

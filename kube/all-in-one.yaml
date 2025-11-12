@@ -1,0 +1,325 @@
+---
+# ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: climapp-config
+  labels:
+    app: climapp
+data:
+  BACKEND_HOST: "climapp-backend-service"
+  BACKEND_PORT: "8000"
+  POSTGRES_HOST: "climapp-db-service"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "climapp"
+  NEXT_PUBLIC_FASTAPI_URL: "http://192.168.49.2:30800"
+  NEXT_PUBLIC_API_URL: "http://192.168.49.2:30800"
+  NODE_ENV: "production"
+
+---
+# Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: climapp-secret
+  labels:
+    app: climapp
+type: Opaque
+stringData:
+  POSTGRES_USER: "postgres"
+  POSTGRES_PASSWORD: "PostgresqlChilling2310.*"
+  DATABASE_URL: "postgresql+psycopg2://postgres:PostgresqlChilling2310.*@climapp-db-service:5432/climapp"
+  WEATHER_API_KEY: "b1c7d0d62d817d95e3b09960a0a70ca4"
+  API_KEY: "b1c7d0d62d817d95e3b09960a0a70ca4"
+
+---
+# PersistentVolumeClaim para PostgreSQL
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  labels:
+    app: climapp
+    component: database
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+# Database Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: climapp-db
+  labels:
+    app: climapp
+    component: database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: climapp
+      component: database
+  template:
+    metadata:
+      labels:
+        app: climapp
+        component: database
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: climapp-secret
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: climapp-secret
+              key: POSTGRES_PASSWORD
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: climapp-config
+              key: POSTGRES_DB
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+            - -d
+            - climapp
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+            - -d
+            - climapp
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc
+
+---
+# Database Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: climapp-db-service
+  labels:
+    app: climapp
+    component: database
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+    name: postgres
+  selector:
+    app: climapp
+    component: database
+
+---
+# Backend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: climapp-backend
+  labels:
+    app: climapp
+    component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: climapp
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: climapp
+        component: backend
+    spec:
+      containers:
+      - name: backend
+        image: emanuelongo2310/backend:latest
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: climapp-secret
+              key: DATABASE_URL
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: climapp-secret
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: climapp-secret
+              key: POSTGRES_PASSWORD
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: climapp-config
+              key: POSTGRES_DB
+        - name: POSTGRES_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: climapp-config
+              key: POSTGRES_HOST
+        - name: POSTGRES_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: climapp-config
+              key: POSTGRES_PORT
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: climapp-secret
+              key: API_KEY
+        - name: WEATHER_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: climapp-secret
+              key: WEATHER_API_KEY
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+
+---
+# Backend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: climapp-backend-service
+  labels:
+    app: climapp
+    component: backend
+spec:
+  type: NodePort
+  ports:
+  - port: 8000
+    targetPort: 8000
+    nodePort: 30800
+    protocol: TCP
+    name: http
+  selector:
+    app: climapp
+    component: backend
+
+---
+# Frontend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: climapp-frontend
+  labels:
+    app: climapp
+    component: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: climapp
+      component: frontend
+  template:
+    metadata:
+      labels:
+        app: climapp
+        component: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: onemayepes/frontend-climapp:latest
+        ports:
+        - containerPort: 80
+          name: http
+        env:
+        - name: NEXT_PUBLIC_FASTAPI_URL
+          valueFrom:
+            configMapKeyRef:
+              name: climapp-config
+              key: NEXT_PUBLIC_FASTAPI_URL
+        - name: NEXT_PUBLIC_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: climapp-config
+              key: NEXT_PUBLIC_API_URL
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: climapp-config
+              key: NODE_ENV
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+
+---
+# Frontend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: climapp-frontend-service
+  labels:
+    app: climapp
+    component: frontend
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 80
+    nodePort: 30300
+    protocol: TCP
+    name: http
+  selector:
+    app: climapp
+    component: frontend

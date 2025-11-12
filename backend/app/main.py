@@ -2,9 +2,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.db.database import Base, engine
 from app.routers import clima, favorito
+from prometheus_fastapi_instrumentator import Instrumentator
 
 # crea tablas
-Base.metadata.create_all(bind=engine)
+# TEMPORALMENTE COMENTADO PARA PROBAR OBSERVABILIDAD - Arreglar conexión DB después
+# Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="CLIMAPP Backend")
 
@@ -23,6 +25,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Instrumentación de Prometheus
+# Esto expondrá métricas en /metrics
+Instrumentator().instrument(app).expose(app)
 
 app.include_router(clima.router)
 app.include_router(favorito.router)

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-env-config
+  labels:
+    app: climapp
+data:
+  env-config.js: |
+    window.ENV = {
+      BACKEND_URL: 'http://climapp-backend-service:8000'
+    };
